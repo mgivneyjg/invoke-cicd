@@ -1,20 +1,25 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: CI/CD pipeline for GitHub projects
 Parameters:
+
   GitHubOwner:
     Type: String
     AllowedPattern: '[A-Za-z0-9-]+'
     Default: mgivneyjg
+  
   GitHubRepository:
     Type: String
     AllowedPattern: '[A-Za-z0-9-]+'
+    Default: 'invoke-cicd'
+  
   GitHubBranch:
     Type: String
     AllowedPattern: '[A-Za-z0-9-]+'
     Default: main
+
   CodeBuildEnvironmentImage:
     Type: String
-    Default: 'aws/codebuild/standard:4.0'
+    Default: 'aws/codebuild/amazonlinux2-x86_64-standard:4.0	'
 
 Resources:
 
@@ -61,3 +66,38 @@ Resources:
                   - 's3:GetBucketLocation'
                 Resource:
                   - '*'
+
+  CodeBuildSourceCredential:
+    Type: AWS::CodeBuild::SourceCredential
+    Properties:
+      AuthType: PERSONAL_ACCESS_TOKEN
+      ServerType: GITHUB
+      Token: '{{resolve:secretsmanager:GITHUB_ACCESS:SecretString:GITHUB_ACCESS_TOKEN}}'
+
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Ref AWS::StackName
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      Source:
+        Type: GITHUB
+        Location: !Sub 'https://github.com/${GitHubOwner}/${GitHubRepository}.git'
+        BuildSpec: buildspec.yaml
+        Auth:
+          Type: OAUTH
+          Resource: !Ref CodeBuildSourceCredential
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Triggers:
+        Webhook: true
+        FilterGroups:
+          - - Type: EVENT
+              Pattern: >-
+                PULL_REQUEST_CREATED, PULL_REQUEST_UPDATED,
+                PULL_REQUEST_REOPENED
+            - Type: BASE_REF
+              Pattern: !Sub '^refs/heads/${GitHubBranch}$'
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: !Ref CodeBuildEnvironmentImage
