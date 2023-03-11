@@ -1,0 +1,63 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: CI/CD pipeline for GitHub projects
+Parameters:
+  GitHubOwner:
+    Type: String
+    AllowedPattern: '[A-Za-z0-9-]+'
+    Default: mgivneyjg
+  GitHubRepository:
+    Type: String
+    AllowedPattern: '[A-Za-z0-9-]+'
+  GitHubBranch:
+    Type: String
+    AllowedPattern: '[A-Za-z0-9-]+'
+    Default: main
+  CodeBuildEnvironmentImage:
+    Type: String
+    Default: 'aws/codebuild/standard:4.0'
+
+Resources:
+
+  CodeBuildServiceRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: CloudWatchLogsPolicy
+                Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource:
+                  - '*'
+              - Sid: S3GetObjectPolicy
+                Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:GetObjectVersion'
+                Resource:
+                  - '*'
+              - Sid: S3PutObjectPolicy
+                Effect: Allow
+                Action:
+                  - 's3:PutObject'
+                Resource:
+                  - '*'
+              - Sid: S3BucketIdentity
+                Effect: Allow
+                Action:
+                  - 's3:GetBucketAcl'
+                  - 's3:GetBucketLocation'
+                Resource:
+                  - '*'

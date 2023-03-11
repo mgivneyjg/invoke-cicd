@@ -1,0 +1,74 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Transform: AWS::Serverless-2016-10-31
+
+Description: > 
+  The AWS CloudFormation template for creating cross account role to be assumed by 
+  cicd-tooling account to carry out deployment in this target account where the 
+  role would be created.
+
+Parameters:
+
+  ToolsAccountID:
+    Description : Account ID of the TOOLS AWS Account that initiates code deployment to this account.
+    Type: String
+    Default: '471274413828'
+
+
+Resources:
+
+  CrossAccountDeploymentRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: client-products-deployment-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              AWS:
+                - !Sub arn:aws:iam::${ToolsAccountID}:root
+            Action:
+              - sts:AssumeRole
+
+  CrossAccountDeploymentPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Allows pipeline in cicd account to deploy API Gateway, Lambda
+      ManagedPolicyName: cross-account-policy-serverless-deployment
+      Roles:
+        - !Ref CrossAccountDeploymentRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: IAMRolesPermissions
+            # Needed for passing CFExecutionRole to Cloudformation Service
+            Effect: Allow
+            Action:
+              - iam:PassRole
+            Resource: '*'
+          - Sid: S3FullAccess
+            # To Get and Put deployment artifacts in serverless deployment bucket
+            Effect: Allow
+            Action:
+              - s3:*
+            Resource: '*'
+          - Sid: CloudFormationFullAccess
+            # To create serverless deployment cloudformation stack
+            Effect: Allow
+            Action:
+              - cloudformation:*
+            Resource: '*'
+
+Outputs:
+  CrossAccountDeploymentRole:
+    Description: Cross Account Deployment Role ARN
+    Value: !GetAtt CrossAccountDeploymentRole.Arn
+    Export:
+      Name: CrossAccountDeploymentRoleArn
+  CrossAccountDeploymentPolicy:
+    Description: Cross Account Deployment Policy ARN
+    Value: !Ref CrossAccountDeploymentPolicy
+    Export:
+      Name: CrossAccountDeploymentPolicyArn
